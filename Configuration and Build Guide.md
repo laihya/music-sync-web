@@ -24,7 +24,7 @@
 
 ## 二、项目结构
 
-text
+```text
 music-sync-web/
 ├── .env.example          # 环境变量模板（复制为 .env 后修改）
 ├── docker-compose.yml    # Docker 编排文件
@@ -55,7 +55,7 @@ music-sync-web/
 
 ### 1. 准备宿主机目录
 
-    bash
+    ```bash
     # 创建四个目录
     sudo mkdir -p /mnt/disk1/downloads /mnt/disk1/music /mnt/disk1/failed /home/user/music-sync-data
 
@@ -67,7 +67,7 @@ music-sync-web/
 
 ### 2. 配置环境变量
 
-    bash
+    ```bash
     cd music-sync-web
     cp .env.example .env
     nano .env   # 或使用 vi
@@ -93,7 +93,7 @@ music-sync-web/
 
 ### 3. 执行一键部署脚本
 
-    bash
+    ```bash
     bash setup.sh
     ```
 
@@ -105,7 +105,7 @@ music-sync-web/
 
 ### 1. 目录准备与权限
 
-    bash
+    ```bash
     sudo mkdir -p /mnt/disk1/downloads /mnt/disk1/music /mnt/disk1/failed /home/user/music-sync-data
     sudo chown -R 1000:1000 /mnt/disk1/music /mnt/disk1/failed /home/user/music-sync-data
     sudo chmod 755 /mnt/disk1/downloads
@@ -113,26 +113,26 @@ music-sync-web/
 
 ### 2. 配置 `.env`
 
-    bash
+    ```bash
     cp .env.example .env
     nano .env   # 修改路径和可选 Key
     ```
 
 ### 3. 构建与启动
 
-    bash
+    ```bash
     docker compose up -d --build
     ```
 
 ### 4. 获取初始密码
 
-    bash
+    ```bash
     docker compose logs | grep "初始管理员密码"
     ```
 
 ### 5. 访问 Web 管理界面
 
-    text
+    ```text
     http://你的服务器IP:8003
     ```
 
@@ -207,7 +207,7 @@ music-sync-web/
 
 ## 八、一键部署脚本 `setup.sh`
 
-    bash
+    ```bash
     #!/bin/bash
     set -e
 
