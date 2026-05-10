@@ -269,7 +269,7 @@ A：不需要，默认使用官方测试 Key。如需稳定，可自行注册 Ac
 <details>
 <summary>Q：忘记 Web 密码怎么办？</summary>
 
-```bash
+bash
 # 查看日志
 docker compose logs | grep "初始管理员密码"
 # 或重置
@@ -281,7 +281,7 @@ docker compose restart
 <details>
 <summary>Q：容器启动报权限错误？</summary>
 
-```bash
+bash
 sudo chown -R 1000:1000 /your/media /your/failed /your/data
 ```
 </details>
