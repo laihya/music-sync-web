@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>音乐同步助手 - 登录</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="login-page">
+    <div class="login-box">
+        <h1>🎵 音乐同步助手</h1>
+        <form id="loginForm">
+            <label for="password">管理员密码</label>
+            <input type="password" id="password" required autofocus>
+            <button type="submit">登录</button>
+            <p id="error" class="error"></p>
+        </form>
+    </div>
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const pwd = document.getElementById('password').value;
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({password: pwd})
+            });
+            if (res.ok) {
+                window.location.href = '/';
+            } else {
+                const data = await res.json();
+                document.getElementById('error').textContent = data.error || '登录失败';
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music Sync Web</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎵 Music Sync Web</h1>
+            <nav>
+                <button onclick="showTab('config')">配置</button>
+                <button onclick="showTab('servers')">媒体服务器</button>
+                <button onclick="showTab('failures')">失败文件</button>
+                <button onclick="showTab('logs')">实时日志</button>
+                <button onclick="logout()">退出</button>
+            </nav>
+        </header>
+        <main>
+            <!-- 配置面板 -->
+            <section id="configTab" class="tab">
+                <h2>系统配置</h2>
+                <form id="configForm">
+                    <label>下载目录</label><input name="watch_dir" type="text">
+                    <label>媒体目录</label><input name="media_dir" type="text">
+                    <label>失败暂存目录</label><input name="failed_dir" type="text">
+                    <label>扫描间隔 (秒)</label><input name="scan_interval" type="number">
+                    <label>最短音频时长 (秒)</label><input name="min_duration_sec" type="number">
+                    <label>每小时处理上限</label><input name="max_files_per_hour" type="number">
+                    <label>文件稳定检测次数</label><input name="file_stable_checks" type="number">
+                    <label>检测间隔 (秒)</label><input name="file_stable_interval_sec" type="number">
+                    <label>允许扩展名 (逗号分隔)</label><input name="allowed_extensions" type="text">
+                    <label>无损扩展名 (逗号分隔)</label><input name="lossless_extensions" type="text">
+
+                    <!-- 刮削源管理 -->
+                    <h2>刮削源</h2>
+                    <input type="hidden" name="enable_netease" id="input_netease" value="false">
+                    <input type="hidden" name="enable_qqmusic" id="input_qqmusic" value="false">
+                    <input type="hidden" name="enable_kugou" id="input_kugou" value="false">
+                    <input type="hidden" name="enable_acoustid" id="input_acoustid" value="true">
+                    <input type="hidden" name="enable_discogs" id="input_discogs" value="false">
+                    <input type="hidden" name="discogs_api_key" id="input_discogs_key" value="">
+
+                    <div class="scraper-cards">
+                        <div class="scraper-card" onclick="toggleSource('enable_acoustid')">
+                            <span class="card-title">AcoustID 指纹</span>
+                            <span class="card-status" id="status_acoustid">加载中...</span>
+                        </div>
+                        <div class="scraper-card" onclick="toggleSource('enable_netease')">
+                            <span class="card-title">网易云音乐</span>
+                            <span class="card-status" id="status_netease">加载中...</span>
+                        </div>
+                        <div class="scraper-card" onclick="toggleSource('enable_qqmusic')">
+                            <span class="card-title">QQ音乐</span>
+                            <span class="card-status" id="status_qqmusic">加载中...</span>
+                        </div>
+                        <div class="scraper-card" onclick="toggleSource('enable_kugou')">
+                            <span class="card-title">酷狗音乐</span>
+                            <span class="card-status" id="status_kugou">加载中...</span>
+                        </div>
+                        <div class="scraper-card" style="cursor: default;">
+                            <span class="card-title">Discogs</span>
+                            <span class="card-status" id="status_discogs">加载中...</span>
+                        </div>
+                    </div>
+
+                    <!-- 换源折叠面板 -->
+                    <div class="collapsible">
+                        <button type="button" class="collapsible-header" onclick="toggleCollapse('sourceUrlsPanel')">⚙️ 换源配置</button>
+                        <div id="sourceUrlsPanel" class="collapsible-content" style="display: none;">
+                            <label>网易云 API URL</label>
+                            <input name="netease_api_url" type="text" placeholder="如：https://music.163.com/api/cloudsearch/pc（留空禁用）">
+                            <label>QQ音乐 API URL</label>
+                            <input name="qqmusic_api_url" type="text" placeholder="如：https://c.y.qq.com/soso/fcgi-bin/search_for_qq_cp（留空禁用）">
+                            <label>酷狗 API URL</label>
+                            <input name="kugou_api_url" type="text" placeholder="如：https://songsearch.kugou.com/song_search_v2（留空禁用）">
+                            <small>⚠️ 必须由用户自行填入有效的 API 地址，留空则禁用该源。修改后保存配置即时生效。</small>
+                        </div>
+                    </div>
+
+                    <label>目录结构模板</label>
+                    <input name="dir_pattern" type="text" placeholder="例如: {artist}/{album} 或留空">
+                    <small>使用 <code>{artist}</code>、<code>{album}</code>、<code>{title}</code> 组合多级目录。留空则文件直接放入媒体根目录。</small>
+                    
+                    <label>文件名模板</label>
+                    <input name="naming_pattern" type="text" placeholder="例如: {artist} - {title}">
+                    <small>可用变量：<code>{artist}</code>、<code>{title}</code>、<code>{album}</code></small>
+                    
+                    <label>日志级别</label>
+                    <select name="log_level">
+                        <option value="DEBUG">DEBUG</option>
+                        <option value="INFO">INFO</option>
+                        <option value="WARNING">WARNING</option>
+                        <option value="ERROR">ERROR</option>
+                    </select>
+                    <button type="submit">保存配置</button>
+                </form>
+                <div id="restartNote" class="warning"></div>
+                <button onclick="triggerScan()">🔍 扫描下载目录中已存在的音乐文件</button>
+                <span id="scanResult"></span>
+
+                <div style="margin-top:20px; padding:10px; border:1px solid #ccc;">
+                    <h3>数据清理（用于测试）</h3>
+                    <select id="cleanTarget">
+                        <option value="all">全部处理记录</option>
+                        <option value="processed">已处理文件记录</option>
+                        <option value="failures">失败记录</option>
+                        <option value="cache">刮削缓存</option>
+                    </select>
+                    <button onclick="cleanData()">执行清理</button>
+                    <span id="cleanResult"></span>
+                </div>
+
+                <h2>修改密码</h2>
+                <form id="passwordForm">
+                    <label>新密码</label><input type="password" id="newPassword" required>
+                    <button type="submit">更新密码</button>
+                </form>
+            </section>
+
+            <!-- 媒体服务器面板 -->
+            <section id="serversTab" class="tab" style="display:none">
+                <h2>媒体服务器</h2>
+                <div id="serverList"></div>
+                <button onclick="addServer()">添加服务器</button>
+                <button onclick="saveServers()">保存服务器配置</button>
+            </section>
+
+            <!-- 失败文件面板 -->
+            <section id="failuresTab" class="tab" style="display:none">
+                <h2>处理失败文件</h2>
+                <table id="failureTable">
+                    <thead>
+                        <tr>
+                            <th>源路径</th>
+                            <th>失败原因</th>
+                            <th>推测艺术家</th>
+                            <th>推测歌曲名</th>
+                            <th>时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </section>
+
+            <!-- 日志面板 -->
+            <section id="logsTab" class="tab" style="display:none">
+                <h2>实时日志</h2>
+                <div id="logContainer"></div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        const logContainer = document.getElementById('logContainer');
+        let logPollTimer;
+
+        async function fetchLogs() {
+            try {
+                const res = await fetch('/api/logs');
+                if (!res.ok) return;
+                const logs = await res.json();
+                if (logs.length === 0) return;
+                let html = '';
+                logs.forEach(msg => { html += `<div>${msg}</div>`; });
+                logContainer.innerHTML = html;
+                logContainer.scrollTop = logContainer.scrollHeight;
+            } catch(e) {}
+        }
+
+        function startLogPolling() {
+            if (logPollTimer) clearInterval(logPollTimer);
+            fetchLogs();
+            logPollTimer = setInterval(fetchLogs, 2000);
+        }
+
+        function stopLogPolling() {
+            if (logPollTimer) { clearInterval(logPollTimer); logPollTimer = null; }
+        }
+
+        function showTab(name) {
+            document.querySelectorAll('.tab').forEach(t => t.style.display = 'none');
+            document.getElementById(name + 'Tab').style.display = 'block';
+            if (name === 'logs') startLogPolling(); else stopLogPolling();
+            if (name === 'failures') loadFailures();
+            if (name === 'servers') loadServers();
+            if (name === 'config') updateSourceStatus();
+        }
+
+        // ===== 刮削源管理 =====
+        function updateSourceStatus() {
+            const sources = ['acoustid', 'netease', 'qqmusic', 'kugou'];
+            sources.forEach(src => {
+                const input = document.getElementById('input_' + src);
+                const statusEl = document.getElementById('status_' + src);
+                if (input && statusEl) {
+                    statusEl.textContent = input.value === 'true' ? '✅ 已启用' : '❌ 未启用';
+                    statusEl.className = input.value === 'true' ? 'card-status enabled' : 'card-status';
+                }
+            });
+
+            // Discogs 特殊处理
+            const discogsEnabled = document.getElementById('input_discogs').value === 'true';
+            const discogsKey = document.getElementById('input_discogs_key').value;
+            const discogsStatus = document.getElementById('status_discogs');
+            if (discogsEnabled && discogsKey) {
+                discogsStatus.textContent = '✅ 已启用 (已设置 Key)';
+                discogsStatus.className = 'card-status enabled';
+            } else if (discogsKey) {
+                discogsStatus.textContent = '🔑 已设置 Key (未启用)';
+                discogsStatus.className = 'card-status';
+            } else {
+                discogsStatus.textContent = '🔑 未设置 Key (需通过环境变量注入)';
+                discogsStatus.className = 'card-status';
+            }
+        }
+
+        async function loadConfig() {
+            const res = await fetch('/api/config');
+            const config = await res.json();
+            const form = document.getElementById('configForm');
+            for (let key in config) {
+                const el = form.querySelector(`[name="${key}"]`);
+                if (!el) continue;
+                if (el.type === 'checkbox') el.checked = config[key];
+                else el.value = Array.isArray(config[key]) ? config[key].join(', ') : config[key];
+            }
+            document.getElementById('input_netease').value = config.enable_netease ? 'true' : 'false';
+            document.getElementById('input_qqmusic').value = config.enable_qqmusic ? 'true' : 'false';
+            document.getElementById('input_kugou').value = config.enable_kugou ? 'true' : 'false';
+            document.getElementById('input_acoustid').value = config.enable_acoustid ? 'true' : 'false';
+            document.getElementById('input_discogs').value = config.enable_discogs ? 'true' : 'false';
+            document.getElementById('input_discogs_key').value = config.discogs_api_key || '';
+            updateSourceStatus();
+        }
+
+        document.getElementById('configForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const fd = new FormData(e.target);
+            const data = {};
+            for (let [k, v] of fd.entries()) {
+                const el = e.target.querySelector(`[name="${k}"]`);
+                if (el.type === 'checkbox') data[k] = el.checked;
+                else if (k === 'allowed_extensions' || k === 'lossless_extensions') data[k] = v.split(',').map(s => s.trim());
+                else data[k] = v;
+            }
+            ['enable_netease','enable_qqmusic','enable_kugou','enable_acoustid','enable_discogs'].forEach(bk => {
+                if (data[bk] !== undefined) data[bk] = data[bk] === 'true';
+            });
+            const res = await fetch('/api/config', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) });
+            const result = await res.json();
+            document.getElementById('restartNote').textContent = result.needs_restart?.length ? `需重启: ${result.needs_restart.join(', ')}` : '配置已保存（热生效）';
+            alert(result.needs_restart?.length ? `配置已保存，以下项需重启：${result.needs_restart.join(', ')}` : '配置已保存');
+            updateSourceStatus();
+        });
+
+        document.getElementById('passwordForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await fetch('/api/password', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({password: document.getElementById('newPassword').value}) });
+            alert('密码已更新');
+        });
+
+        async function logout() { await fetch('/api/logout', { method:'POST' }); window.location.href = '/login'; }
+
+        function toggleSource(source) {
+            const input = document.getElementById('input_' + source.replace('enable_', ''));
+            if (!input) return;
+            input.value = input.value === 'true' ? 'false' : 'true';
+            updateSourceStatus();
+        }
+
+        // ===== 换源面板折叠 =====
+        function toggleCollapse(id) {
+            const panel = document.getElementById(id);
+            if (panel) {
+                panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+            }
+        }
+
+        // ===== 媒体服务器 =====
+        async function loadServers() {
+            const res = await fetch('/api/config');
+            const config = await res.json();
+            const servers = config.servers || [];
+            const div = document.getElementById('serverList');
+            div.innerHTML = '';
+            servers.forEach((s) => {
+                div.innerHTML += `<div class="server-entry">
+                    <input value="${s.name}" placeholder="名称" class="srv-name">
+                    <select class="srv-type"><option value="jellyfin" ${s.type==='jellyfin'?'selected':''}>Jellyfin</option><option value="emby" ${s.type==='emby'?'selected':''}>Emby</option><option value="plex" ${s.type==='plex'?'selected':''}>Plex</option></select>
+                    <input value="${s.url}" placeholder="URL" class="srv-url">
+                    <input value="${s.api_key}" placeholder="API Key" class="srv-apikey">
+                    <label><input type="checkbox" class="srv-enabled" ${s.enabled?'checked':''}> 启用</label>
+                    <button onclick="this.parentElement.remove()">删除</button>
+                </div>`;
+            });
+        }
+
+        function addServer() {
+            document.getElementById('serverList').innerHTML += `<div class="server-entry">
+                <input placeholder="名称" class="srv-name"><select class="srv-type"><option value="jellyfin">Jellyfin</option><option value="emby">Emby</option><option value="plex">Plex</option></select>
+                <input placeholder="URL" class="srv-url"><input placeholder="API Key" class="srv-apikey">
+                <label><input type="checkbox" class="srv-enabled" checked> 启用</label>
+                <button onclick="this.parentElement.remove()">删除</button>
+            </div>`;
+        }
+
+        async function saveServers() {
+            const entries = document.querySelectorAll('.server-entry');
+            const servers = [];
+            entries.forEach(e => {
+                const name = e.querySelector('.srv-name').value, type = e.querySelector('.srv-type').value,
+                    url = e.querySelector('.srv-url').value, api_key = e.querySelector('.srv-apikey').value,
+                    enabled = e.querySelector('.srv-enabled').checked;
+                if (name && url) servers.push({ name, type, url, api_key, enabled });
+            });
+            await fetch('/api/config', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({servers}) });
+            alert('服务器配置已保存');
+        }
+
+        // ===== 失败文件 =====
+        async function loadFailures() {
+            const res = await fetch('/api/failures');
+            const items = await res.json();
+            const tbody = document.querySelector('#failureTable tbody');
+            tbody.innerHTML = '';
+            items.forEach(item => {
+                tbody.innerHTML += `<tr>
+                    <td>${item.source_path}</td><td>${item.reason}</td>
+                    <td><input value="${item.partial_artist||''}" id="fa_${item.id}"></td>
+                    <td><input value="${item.partial_title||''}" id="ft_${item.id}"></td>
+                    <td>${item.timestamp}</td>
+                    <td>
+                        <button onclick="retryFailure(${item.id})">重试</button>
+                        <button onclick="updateFailMeta(${item.id})">修正并重试</button>
+                        <button onclick="deleteFailure(${item.id})">忽略</button>
+                    </td>
+                </tr>`;
+            });
+        }
+
+        async function retryFailure(id) { await fetch(`/api/failures/${id}/retry`, { method:'POST' }); loadFailures(); alert('已加入处理队列'); }
+        async function updateFailMeta(id) {
+            const artist = document.getElementById(`fa_${id}`).value, title = document.getElementById(`ft_${id}`).value;
+            await fetch(`/api/failures/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({artist, title}) });
+            await retryFailure(id);
+            alert('已修正并重新处理');
+        }
+        async function deleteFailure(id) { await fetch(`/api/failures/${id}`, { method:'DELETE' }); loadFailures(); alert('已删除记录'); }
+
+        async function triggerScan() {
+            const res = await fetch('/api/scan', { method:'POST' });
+            const data = await res.json();
+            document.getElementById('scanResult').textContent = data.message || data.error;
+            alert(data.message || data.error);
+        }
+
+        async function cleanData() {
+            const target = document.getElementById('cleanTarget').value;
+            if (!confirm(`确定要清除 ${target} 数据吗？`)) return;
+            const res = await fetch('/api/clean', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({target}) });
+            const data = await res.json();
+            document.getElementById('cleanResult').textContent = data.message || data.error;
+            alert(data.message || data.error);
+        }
+
+        window.onload = async () => { await loadConfig(); showTab('config'); };
+    </script>
+</body>
+</html>

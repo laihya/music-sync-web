@@ -1,0 +1,24 @@
+services:
+  music-sync:
+    build: .
+    image: music-sync-web:latest
+    container_name: music-sync-web
+    network_mode: host
+    environment:
+      - WATCH_DIR=/downloads
+      - MEDIA_DIR=/media
+      - FAILED_DIR=/failed
+      - DATA_DIR=/data
+      - WEBUI_PORT=8003
+      - WEBUI_PASSWORD=${WEBUI_PASSWORD}
+      - PYTHONUNBUFFERED=1
+      - TZ=Asia/Shanghai
+      - DISCOGS_API_KEY=${DISCOGS_API_KEY}
+      - ACOUSTID_API_KEY=${ACOUSTID_API_KEY}
+    volumes:
+      - ${DOWNLOAD_PATH:-/your/download/path}:/downloads:ro
+      - ${MEDIA_PATH:-/your/media/path}:/media
+      - ${FAILED_PATH:-/your/failed/path}:/failed
+      - ${DATA_PATH:-/your/data/path}:/data
+    user: "1000:1000"
+    restart: unless-stopped
